@@ -20,7 +20,7 @@
 //////////////////////////////////////////////////////////////////////////////////
 
 
-module cache #(
+module ICache #(
     parameter  OFFSET_LEN    = 5,
     parameter  INDEX_LEN = 7,
     parameter  TAG_LEN  = 20,
@@ -33,10 +33,9 @@ module cache #(
     output reg [31:0] rd_data, // 读出的数据，一次读一个word
     
     //AXI
-    input mem_gnt,
+    input axi_mem_gnt,
     input [31:0] ins [1<<(OFFSET_LEN-2)],
-    output [31:0] mem_addr,
-    output mem_read_req
+    output [31:0] mem_addr
 );
 
 wire [TAG_LEN-1   : 0] tag;
@@ -74,6 +73,8 @@ reg [WAY_CNT-1:0] set_search;
 wire cache_hit;
 assign cache_hit=(|set_search);
 enum {IDLE,SWAP_IN,SWAP_IN_FINISHED} cache_state;
+assign miss=(rd_req) & !(cache_hit & cache_state==IDLE);
+
 
 always@(*)
 begin
@@ -97,9 +98,8 @@ begin
     endcase
 end
 
-assign mem_read_req=(cache_state==SWAP_IN);
+wire mem_read_req=(cache_state==SWAP_IN);
 assign mem_addr = mem_read_req ? {addr[31:5],5'b0} : 32'b0;
-assign miss = !(cache_state == IDLE);
 
 always@(posedge clk or posedge rst)
 begin
@@ -127,7 +127,7 @@ begin
                 end
             end
             SWAP_IN:begin
-                if (mem_gnt) begin
+                if (axi_mem_gnt) begin
                     cache_state <= SWAP_IN_FINISHED;
                 end
             end
@@ -160,7 +160,4 @@ begin
         endcase
     end
 end
-/*
-和AXI总线通信
-*/
 endmodule
